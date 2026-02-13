@@ -3,7 +3,7 @@
  * Plugin Name: AI makale
  * Description: Düzenli aralıklarıla makale yazıp taslak olarak kaydeden wp eklentisi
  * Author: Halil ibrahim ATAYLAR
- * Version: 0.51
+ * Version: 2.55
  */
 
 // Doğrudan erişimi engelle
@@ -56,11 +56,34 @@ add_filter( 'cron_schedules', function( $schedules ) {
     return $schedules;
 });
 
+// Daily için bir sonraki 00:00 zamanını döndür (WordPress timezone). Cron UTC kullandığı için UTC timestamp.
+function gemini_next_midnight_utc() {
+    $tz_string = get_option( 'timezone_string' );
+    if ( empty( $tz_string ) ) {
+        $offset = (float) get_option( 'gmt_offset' );
+        $tz_string = 'UTC' . ( $offset >= 0 ? '+' : '' ) . $offset;
+    }
+    try {
+        $tz = new DateTimeZone( $tz_string );
+    } catch ( Exception $e ) {
+        $tz = new DateTimeZone( 'UTC' );
+    }
+    $now = new DateTime( 'now', $tz );
+    $midnight = clone $now;
+    $midnight->setTime( 0, 0, 0 );
+    if ( $now >= $midnight ) {
+        $midnight->modify( '+1 day' );
+    }
+    $midnight->setTimezone( new DateTimeZone( 'UTC' ) );
+    return $midnight->getTimestamp();
+}
+
 // Aktivasyonda varsayılan zamanlayıcıyı kur
 register_activation_hook( __FILE__, function() {
     $aralik = get_option( 'gemini_cron_aralik_opt', 'daily' );
     if ( ! wp_next_scheduled( 'gemini_gorevi_v5' ) ) {
-        wp_schedule_event( time(), $aralik, 'gemini_gorevi_v5' );
+        $first_run = ( $aralik === 'daily' ) ? gemini_next_midnight_utc() : time();
+        wp_schedule_event( $first_run, $aralik, 'gemini_gorevi_v5' );
     }
 });
 
@@ -88,7 +111,7 @@ function gemini_baslat( $debug = false ) {
     file_put_contents( KONU_DOSYASI, implode( PHP_EOL, $satirlar ) );
 
     $url = 'https://generativelanguage.googleapis.com/v1beta/models/' . GEMINI_MODEL . ':generateContent?key=' . GEMINI_API_KEY;
-    $prompt = "Şu konuda Türkçe, SEO uyumlu, HTML formatlı (h2, p) blog yazısı yaz. Başlık h1 olmasın. Konu: $konu";
+    $prompt = "Şu konuda Türkçe, SEO uyumlu, HTML formatlı (h2, p) blog yazısı yaz. Başlık h1 olmasın. İlk satır başlık olacak ve konuyu içerecek. Konu: $konu";
 
     $body = json_encode([ 'contents' => [ [ 'parts' => [ [ 'text' => $prompt ] ] ] ] ]);
 

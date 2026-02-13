@@ -14,7 +14,8 @@ if ( isset( $_POST['gemini_ayarlari_kaydet'] ) ) {
     update_option( 'gemini_cron_aralik_opt', $yeni_aralik );
 
     wp_clear_scheduled_hook( 'gemini_gorevi_v5' );
-    wp_schedule_event( time(), $yeni_aralik, 'gemini_gorevi_v5' );
+    $first_run = ( $yeni_aralik === 'daily' ) ? gemini_next_midnight_utc() : time();
+    wp_schedule_event( $first_run, $yeni_aralik, 'gemini_gorevi_v5' );
 
     echo '<div class="notice notice-success is-dismissible"><p>Ayarlar kaydedildi ve zamanlayıcı güncellendi!</p></div>';
 }
@@ -75,6 +76,12 @@ $mevcut_aralik = get_option( 'gemini_cron_aralik_opt', 'daily' );
                     Şu anki Zamanlama:
                     <span class="badge bg-secondary rounded-pill"><?php echo ucfirst($mevcut_aralik); ?></span>
                 </li>
+                <?php if ( $mevcut_aralik === 'daily' ): $next = wp_next_scheduled( 'gemini_gorevi_v5' ); ?>
+                <li class="list-group-item d-flex justify-content-between align-items-center">
+                    Sonraki çalışma (00:00):
+                    <span class="badge bg-success rounded-pill"><?php echo $next ? date_i18n( 'Y-m-d H:i', $next ) : '—'; ?></span>
+                </li>
+                <?php endif; ?>
                 <li class="list-group-item d-flex justify-content-between align-items-center">
                     Manuel Test:
                     <a href="<?php echo admin_url('?gemini_tetikle=1'); ?>" class="btn btn-sm btn-outline-warning" target="_blank">Şimdi Tetikle</a>
