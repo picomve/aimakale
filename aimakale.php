@@ -3,7 +3,7 @@
  * Plugin Name: AI makale
  * Description: Düzenli aralıklarıla makale yazıp taslak olarak kaydeden wp eklentisi
  * Author: Halil ibrahim ATAYLAR
- * Version: 0.5
+ * Version: 0.51
  */
 
 // Doğrudan erişimi engelle
@@ -56,55 +56,11 @@ add_filter( 'cron_schedules', function( $schedules ) {
     return $schedules;
 });
 
-// Gece yarısı (00:00) zamanını hesapla - WordPress timezone'una göre
-function gemini_gece_yarisi_zamani() {
-    // WordPress timezone ayarını al
-    $timezone_string = get_option( 'timezone_string' );
-    if ( empty( $timezone_string ) ) {
-        // Eğer timezone string yoksa, offset kullan
-        $gmt_offset = get_option( 'gmt_offset' );
-        $timezone_string = timezone_name_from_abbr( '', $gmt_offset * 3600, false );
-        if ( $timezone_string === false ) {
-            $timezone_string = 'UTC';
-        }
-    }
-    
-    try {
-        $timezone = new DateTimeZone( $timezone_string );
-    } catch ( Exception $e ) {
-        $timezone = new DateTimeZone( 'UTC' );
-    }
-    
-    // Şu anki zamanı WordPress timezone'una göre al
-    $simdi = new DateTime( 'now', $timezone );
-    
-    // Bugünün gece yarısını oluştur
-    $bugun_gece_yarisi = clone $simdi;
-    $bugun_gece_yarisi->setTime( 0, 0, 0 );
-    
-    // Eğer gece yarısı geçtiyse, yarının gece yarısını al
-    if ( $simdi >= $bugun_gece_yarisi ) {
-        $bugun_gece_yarisi->modify( '+1 day' );
-    }
-    
-    // UTC'ye çevir (WordPress cron UTC kullanır)
-    $bugun_gece_yarisi->setTimezone( new DateTimeZone( 'UTC' ) );
-    
-    // Timestamp olarak döndür
-    return $bugun_gece_yarisi->getTimestamp();
-}
-
 // Aktivasyonda varsayılan zamanlayıcıyı kur
 register_activation_hook( __FILE__, function() {
-    // Veritabanındaki ayarı kontrol et, yoksa 'daily' yap
     $aralik = get_option( 'gemini_cron_aralik_opt', 'daily' );
     if ( ! wp_next_scheduled( 'gemini_gorevi_v5' ) ) {
-        // Eğer daily ise gece yarısında çalıştır, değilse normal zamanla
-        if ( $aralik === 'daily' ) {
-            wp_schedule_event( gemini_gece_yarisi_zamani(), $aralik, 'gemini_gorevi_v5' );
-        } else {
-            wp_schedule_event( time(), $aralik, 'gemini_gorevi_v5' );
-        }
+        wp_schedule_event( time(), $aralik, 'gemini_gorevi_v5' );
     }
 });
 
