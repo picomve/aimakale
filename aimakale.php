@@ -6,166 +6,166 @@
  * Version: 0.5
  */
 
+// Doğrudan erişimi engelle
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-// --- .ENV YÜKLEME FONKSİYONU ---
+// --- ENV YÜKLEME ---
 function gemini_env_yukle() {
-    // Önce .env.local, yoksa .env dosyasına bakar
     $env_dosyasi = plugin_dir_path( __FILE__ ) . '.env';
+    if ( ! file_exists( $env_dosyasi ) ) $env_dosyasi = plugin_dir_path( __FILE__ ) . '.env.local';
     
-    if ( ! file_exists( $env_dosyasi ) ) {
-        $env_dosyasi = plugin_dir_path( __FILE__ ) . '.env.local';
-    }
-
     if ( file_exists( $env_dosyasi ) ) {
         $satirlar = file( $env_dosyasi, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES );
         foreach ( $satirlar as $satir ) {
-            // Yorum satırlarını (#) atla
             if ( strpos( trim( $satir ), '#' ) === 0 ) continue;
-
-            // Eşittir işaretinden böl
             list( $anahtar, $deger ) = explode( '=', $satir, 2 );
-            
-            $anahtar = trim( $anahtar );
-            $deger   = trim( $deger );
-
-            // Eğer tanımlanmamışsa sabiti tanımla
-            if ( ! defined( $anahtar ) ) {
-                define( $anahtar, $deger );
-            }
+            if ( ! defined( trim($anahtar) ) ) define( trim($anahtar), trim($deger) );
         }
     }
 }
-
-// .env dosyasını yükle
 gemini_env_yukle();
 
-// --- SABİTLER VE AYARLAR ---
-// Artık .env dosyasından gelen sabitleri kullanıyoruz
-// Eğer .env yoksa veya anahtar girilmemişse varsayılan değerler (boş) kalır.
+// Varsayılanlar
 if ( ! defined( 'GEMINI_API_KEY' ) ) define( 'GEMINI_API_KEY', '' );
-if ( ! defined( 'GEMINI_MODEL' ) )   define( 'GEMINI_MODEL', 'gemini-2.5-flash' );
-
+if ( ! defined( 'GEMINI_MODEL' ) )   define( 'GEMINI_MODEL', 'gemini-1.5-flash' );
 define( 'KONU_DOSYASI', plugin_dir_path( __FILE__ ) . 'konular.txt' );
 
-// Zamanlayıcı Tanımları
+// --- 1. ADMİN MENÜSÜ EKLEME ---
+add_action( 'admin_menu', 'gemini_menu_olustur' );
+
+function gemini_menu_olustur() {
+    add_menu_page(
+        'Gemini Yazar',          // Sayfa Başlığı
+        'Gemini Yazar',          // Menü Adı
+        'manage_options',        // Yetki (Sadece admin)
+        'gemini-yazar-ayarlari', // Sayfa Slug'ı (URL)
+        'gemini_sayfa_getir',    // İçeriği basacak fonksiyon
+        'dashicons-edit',        // İkon
+        100                      // Sıra
+    );
+}
+
+// Admin sayfasını dosyadan dahil et
+function gemini_sayfa_getir() {
+    include plugin_dir_path( __FILE__ ) . 'admin/index.php';
+}
+
+// --- 2. ZAMANLAYICI AYARLARI ---
 add_filter( 'cron_schedules', function( $schedules ) {
     $schedules['weekly'] = array( 'interval' => 604800, 'display'  => 'Haftada Bir' );
     return $schedules;
 });
 
-register_activation_hook( __FILE__, function() {
-    if ( ! wp_next_scheduled( 'gemini_gorevi' ) ) wp_schedule_event( time(), 'weekly', 'gemini_gorevi' );
-});
-
-register_deactivation_hook( __FILE__, function() { wp_clear_scheduled_hook( 'gemini_gorevi' ); });
-add_action( 'gemini_gorevi', 'gemini_baslat' );
-
-// --- ANA FONKSİYON ---
-function gemini_baslat( $debug = false ) {
-    
-    // 1. Temel Kontroller
-    if ( !defined('GEMINI_API_KEY') || strlen(GEMINI_API_KEY) < 10 ) {
-        if ($debug) echo "<p style='color:red;'>HATA: API Anahtarı eksik.</p>"; return;
-    }
-    
-    if ( !file_exists( KONU_DOSYASI ) ) {
-        if ($debug) echo "<p style='color:red;'>HATA: konular.txt dosyası yok.</p>"; return;
-    }
-
-    $satirlar = file( KONU_DOSYASI, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES );
-    if ( empty( $satirlar ) ) {
-        if ($debug) echo "<p style='color:red;'>HATA: Konu listesi boş.</p>"; return;
-    }
-
-    $konu = trim( $satirlar[0] );
-    
-    // 2. Modelleri Listeleme Modu (Eğer hata alırsak neyin var olduğunu görmek için)
-    if ( $debug ) {
-        echo "<h3>--- MODEL KONTROLÜ ---</h3>";
-        $list_url = 'https://generativelanguage.googleapis.com/v1beta/models?key=' . GEMINI_API_KEY;
-        $list_response = wp_remote_get( $list_url );
-        
-        if ( !is_wp_error($list_response) && wp_remote_retrieve_response_code($list_response) == 200 ) {
-            $data = json_decode( wp_remote_retrieve_body($list_response), true );
-            echo "<strong>Kullanabileceğiniz Geçerli Modeller:</strong><br>";
-            echo "<textarea style='width:100%; height:100px;'>";
-            if(isset($data['models'])) {
-                foreach($data['models'] as $m) {
-                    // Sadece 'generateContent' destekleyenleri göster
-                    if(in_array('generateContent', $m['supportedGenerationMethods'])) {
-                        // "models/" kısmını atarak yazdır
-                        echo str_replace('models/', '', $m['name']) . "\n";
-                    }
-                }
-            }
-            echo "</textarea><br><small>Yukarıdaki listeden birini koddaki GEMINI_MODEL_ID kısmına yazabilirsiniz.</small><br><hr>";
-        } else {
-            echo "Model listesi alınamadı. API Key yanlış olabilir.<br><hr>";
+// Gece yarısı (00:00) zamanını hesapla - WordPress timezone'una göre
+function gemini_gece_yarisi_zamani() {
+    // WordPress timezone ayarını al
+    $timezone_string = get_option( 'timezone_string' );
+    if ( empty( $timezone_string ) ) {
+        // Eğer timezone string yoksa, offset kullan
+        $gmt_offset = get_option( 'gmt_offset' );
+        $timezone_string = timezone_name_from_abbr( '', $gmt_offset * 3600, false );
+        if ( $timezone_string === false ) {
+            $timezone_string = 'UTC';
         }
     }
+    
+    try {
+        $timezone = new DateTimeZone( $timezone_string );
+    } catch ( Exception $e ) {
+        $timezone = new DateTimeZone( 'UTC' );
+    }
+    
+    // Şu anki zamanı WordPress timezone'una göre al
+    $simdi = new DateTime( 'now', $timezone );
+    
+    // Bugünün gece yarısını oluştur
+    $bugun_gece_yarisi = clone $simdi;
+    $bugun_gece_yarisi->setTime( 0, 0, 0 );
+    
+    // Eğer gece yarısı geçtiyse, yarının gece yarısını al
+    if ( $simdi >= $bugun_gece_yarisi ) {
+        $bugun_gece_yarisi->modify( '+1 day' );
+    }
+    
+    // UTC'ye çevir (WordPress cron UTC kullanır)
+    $bugun_gece_yarisi->setTimezone( new DateTimeZone( 'UTC' ) );
+    
+    // Timestamp olarak döndür
+    return $bugun_gece_yarisi->getTimestamp();
+}
 
-    // 3. Makale Yazdırma İsteği
-    if ($debug) echo "<strong>Seçilen Konu:</strong> $konu <br>";
-    if ($debug) echo "<strong>Kullanılan Model:</strong> " . GEMINI_MODEL_ID . "<br>";
+// Aktivasyonda varsayılan zamanlayıcıyı kur
+register_activation_hook( __FILE__, function() {
+    // Veritabanındaki ayarı kontrol et, yoksa 'daily' yap
+    $aralik = get_option( 'gemini_cron_aralik_opt', 'daily' );
+    if ( ! wp_next_scheduled( 'gemini_gorevi_v5' ) ) {
+        // Eğer daily ise gece yarısında çalıştır, değilse normal zamanla
+        if ( $aralik === 'daily' ) {
+            wp_schedule_event( gemini_gece_yarisi_zamani(), $aralik, 'gemini_gorevi_v5' );
+        } else {
+            wp_schedule_event( time(), $aralik, 'gemini_gorevi_v5' );
+        }
+    }
+});
 
-    // Dosyadan sil
+// Deaktivasyonda temizle
+register_deactivation_hook( __FILE__, function() {
+    wp_clear_scheduled_hook( 'gemini_gorevi_v5' );
+});
+
+add_action( 'gemini_gorevi_v5', 'gemini_baslat' );
+
+// --- 3. ANA FONKSİYON ---
+function gemini_baslat( $debug = false ) {
+    
+    if ( empty( GEMINI_API_KEY ) || strlen( GEMINI_API_KEY ) < 10 ) {
+        if ($debug) echo "HATA: API Key yok."; return;
+    }
+    
+    if ( ! file_exists( KONU_DOSYASI ) ) return;
+
+    $satirlar = file( KONU_DOSYASI, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES );
+    if ( empty( $satirlar ) ) return;
+
+    $konu = trim( $satirlar[0] );
     unset( $satirlar[0] );
     file_put_contents( KONU_DOSYASI, implode( PHP_EOL, $satirlar ) );
 
-    // URL Yapısı: v1beta + gemini-1.5-flash
-    $url = 'https://generativelanguage.googleapis.com/v1beta/models/' . GEMINI_MODEL_ID . ':generateContent?key=' . GEMINI_API_KEY;
-    
-    $prompt = "Şu konuda Türkçe, SEO uyumlu, HTML formatlı blog yazısı yaz. Başlık h1 olmasın. Konu: $konu";
+    $url = 'https://generativelanguage.googleapis.com/v1beta/models/' . GEMINI_MODEL . ':generateContent?key=' . GEMINI_API_KEY;
+    $prompt = "Şu konuda Türkçe, SEO uyumlu, HTML formatlı (h2, p) blog yazısı yaz. Başlık h1 olmasın. Konu: $konu";
 
-    $body = json_encode([
-        'contents' => [
-            [ 'parts' => [ [ 'text' => $prompt ] ] ]
-        ]
-    ]);
+    $body = json_encode([ 'contents' => [ [ 'parts' => [ [ 'text' => $prompt ] ] ] ] ]);
 
     $args = [
-        'body' => $body,
+        'body'    => $body,
         'headers' => ['Content-Type' => 'application/json'],
-        'timeout' => 60, 'method' => 'POST'
+        'timeout' => 60, 'method'  => 'POST'
     ];
 
     $response = wp_remote_post( $url, $args );
 
-    if ( is_wp_error( $response ) ) {
-        if ($debug) echo "Bağlantı Hatası: " . $response->get_error_message(); return;
-    }
+    if ( is_wp_error( $response ) ) return;
 
     $res_body = json_decode( wp_remote_retrieve_body( $response ), true );
-
-    // Hata Kontrolü
-    if ( isset($res_body['error']) ) {
-        if ($debug) {
-            echo "<p style='color:red; font-weight:bold;'>API HATASI:</p>";
-            echo "<pre>" . print_r($res_body['error'], true) . "</pre>";
-            echo "<p>Lütfen yukarıdaki 'Kullanabileceğiniz Geçerli Modeller' listesindeki bir ismi koda yazın.</p>";
-        }
-        return;
-    }
-
-    // İçeriği Al
     $ai_text = $res_body['candidates'][0]['content']['parts'][0]['text'] ?? '';
 
-    if ( !empty( $ai_text ) ) {
+    if ( ! empty( $ai_text ) ) {
         $lines = explode("\n", trim($ai_text));
         $title = strip_tags($lines[0]);
         unset($lines[0]);
         
-        $post_id = wp_insert_post([
-            'post_title' => $title, 'post_content' => implode("\n", $lines),
-            'post_status' => 'draft', 'post_author' => 1
+        wp_insert_post([
+            'post_title'   => $title,
+            'post_content' => implode("\n", $lines),
+            'post_status'  => 'draft',
+            'post_author'  => 1
         ]);
         
-        if ($debug) echo "<h3 style='color:green;'>BAŞARILI! Yazı Taslaklara Eklendi. ID: $post_id</h3>";
+        if ($debug) echo "Başarılı.";
     }
 }
 
-// Test Tetikleyici
+// Test Tetikleyici (Admin paneli dışından URL ile test için)
 add_action( 'init', function() {
     if ( isset( $_GET['gemini_tetikle'] ) && current_user_can( 'manage_options' ) ) {
         gemini_baslat( true );
