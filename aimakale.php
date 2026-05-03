@@ -2,8 +2,8 @@
 /**
  * Plugin Name: AI makale
  * Description: Düzenli aralıklarıla makale yazıp taslak olarak kaydeden wp eklentisi
- * Author: Halil ibrahim ATAYLAR
- * Version: 2.56
+ * Author: Picomve
+ * Version: 3.0
  */
 
 // Doğrudan erişimi engelle
@@ -35,10 +35,10 @@ add_action( 'admin_menu', 'gemini_menu_olustur' );
 
 function gemini_menu_olustur() {
     add_menu_page(
-        'Gemini Yazar',          // Sayfa Başlığı
-        'Gemini Yazar',          // Menü Adı
+        'AI Makale Yazar',          // Sayfa Başlığı
+        'AI Makale Yazar',          // Menü Adı
         'manage_options',        // Yetki (Sadece admin)
-        'gemini-yazar-ayarlari', // Sayfa Slug'ı (URL)
+        'aimakale-ayarlari', // Sayfa Slug'ı (URL)
         'gemini_sayfa_getir',    // İçeriği basacak fonksiyon
         'dashicons-edit',        // İkon
         100                      // Sıra
