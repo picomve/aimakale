@@ -3,7 +3,7 @@
  * Plugin Name: AI makale
  * Description: Düzenli aralıklarıla makale yazıp taslak olarak kaydeden wp eklentisi
  * Author: Halil ibrahim ATAYLAR
- * Version: 2.55
+ * Version: 2.56
  */
 
 // Doğrudan erişimi engelle
