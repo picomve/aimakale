@@ -20,6 +20,20 @@ if ( isset( $_POST['gemini_ayarlari_kaydet'] ) ) {
     echo '<div class="notice notice-success is-dismissible"><p>Ayarlar kaydedildi ve zamanlayıcı güncellendi!</p></div>';
 }
 
+// --- KONULARI KAYDETME İŞLEMİ ---
+if ( isset( $_POST['konular_kaydet'] ) ) {
+    // Güvenlik kontrolü (Nonce)
+    check_admin_referer( 'konular_guvenligi' );
+
+    // Formdan gelen veriyi al
+    $yeni_konular = sanitize_textarea_field( $_POST['konular_icerik'] );
+
+    // Dosyaya kaydet
+    file_put_contents( KONU_DOSYASI, $yeni_konular );
+
+    echo '<div class="notice notice-success is-dismissible"><p>Konular dosyası güncellendi!</p></div>';
+}
+
 $mevcut_aralik = get_option( 'gemini_cron_aralik_opt', 'daily' );
 ?>
 
@@ -66,8 +80,11 @@ $mevcut_aralik = get_option( 'gemini_cron_aralik_opt', 'daily' );
             <ul class="list-group list-group-flush">
                 <li class="list-group-item d-flex justify-content-between align-items-center">
                     Konu Dosyası Durumu:
-                    <?php if ( file_exists( KONU_DOSYASI ) ): ?>
-                        <span class="badge bg-success rounded-pill">Bulundu</span>
+                    <?php if ( file_exists( KONU_DOSYASI ) ):
+                        $satirlar = file( KONU_DOSYASI, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES );
+                        $count = count($satirlar);
+                    ?>
+                        <span class="badge bg-success rounded-pill">Bulundu (<?php echo $count; ?> konu)</span>
                     <?php else: ?>
                         <span class="badge bg-danger rounded-pill">Bulunamadı</span>
                     <?php endif; ?>
@@ -87,6 +104,29 @@ $mevcut_aralik = get_option( 'gemini_cron_aralik_opt', 'daily' );
                     <a href="<?php echo admin_url('?gemini_tetikle=1'); ?>" class="btn btn-sm btn-outline-warning" target="_blank">Şimdi Tetikle</a>
                 </li>
             </ul>
+        </div>
+    </div>
+
+    <div class="card mt-4 border-warning">
+        <div class="card-header bg-warning text-dark">
+            <h5 class="mb-0">Konular Yönetimi</h5>
+        </div>
+        <div class="card-body">
+            <?php if ( file_exists( KONU_DOSYASI ) ):
+                $icerik = file_get_contents( KONU_DOSYASI );
+            ?>
+            <p>Konular dosyasını düzenleyebilirsiniz. Her satır bir konu olacak.</p>
+            <form method="post" action="">
+                <?php wp_nonce_field( 'konular_guvenligi' ); ?>
+                <div class="mb-3">
+                    <label for="konular_icerik" class="form-label">Konular (Her satır bir konu)</label>
+                    <textarea name="konular_icerik" id="konular_icerik" class="form-control" rows="10"><?php echo esc_textarea( $icerik ); ?></textarea>
+                </div>
+                <button type="submit" name="konular_kaydet" class="btn btn-warning">Konuları Kaydet</button>
+            </form>
+            <?php else: ?>
+            <p class="text-danger">Konular dosyası bulunamadı.</p>
+            <?php endif; ?>
         </div>
     </div>
 
