@@ -29,7 +29,7 @@ $mevcut_aralik = get_option( 'gemini_cron_aralik_opt', 'daily' );
     
     <div class="card shadow-sm">
         <div class="card-header bg-primary text-white">
-            <h2 class="h5 mb-0" style="color:white;">Gemini Yazar Ayarları</h2>
+            <h2 class="h5 mb-0" style="color:white;">AI Makele Ayarları</h2>
         </div>
         <div class="card-body">
             
