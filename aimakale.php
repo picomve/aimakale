@@ -3,7 +3,7 @@
  * Plugin Name: AI makale
  * Description: Düzenli aralıklarıla makale yazıp taslak olarak kaydeden wp eklentisi
  * Author: Picomve
- * Version: 3.2
+ * Version: 3.3
  */
 
 // Doğrudan erişimi engelle
@@ -30,6 +30,55 @@ if ( ! defined( 'GEMINI_API_KEY' ) ) define( 'GEMINI_API_KEY', '' );
 if ( ! defined( 'GEMINI_MODEL' ) )   define( 'GEMINI_MODEL', 'gemini-1.5-flash' );
 define( 'KONU_DOSYASI', plugin_dir_path( __FILE__ ) . 'konular.txt' );
 define( 'KONU_DB', plugin_dir_path( __FILE__ ) . 'konular.sqlite' );
+
+// --- ENV DOĞRULAMA FONKSİYONU ---
+function aimakale_validate_env() {
+    $missing = [];
+    $required = [
+        'GEMINI_API_KEY' => 'Gemini API Anahtarı'
+    ];
+    
+    foreach ( $required as $key => $label ) {
+        if ( ! defined( $key ) || empty( constant( $key ) ) ) {
+            $missing[ $key ] = $label;
+        }
+    }
+    
+    return $missing;
+}
+
+// --- ENV DOSYASI YAZMA FONKSİYONU ---
+function aimakale_write_env( $vars ) {
+    $env_path = plugin_dir_path( __FILE__ ) . '.env.local';
+    $existing = [];
+    
+    // Mevcut .env dosyasını oku
+    if ( file_exists( $env_path ) ) {
+        $lines = file( $env_path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES );
+        foreach ( $lines as $line ) {
+            if ( strpos( trim( $line ), '#' ) === 0 ) {
+                continue; // Yorum satırlarını atla
+            }
+            if ( strpos( $line, '=' ) !== false ) {
+                list( $key, $value ) = explode( '=', $line, 2 );
+                $existing[ trim( $key ) ] = trim( $value );
+            }
+        }
+    }
+    
+    // Yeni değerleri birleştir
+    $merged = array_merge( $existing, $vars );
+    
+    // Dosyaya yaz
+    $content = "# AI Makale Yazar - Ortam Değişkenleri\n";
+    foreach ( $merged as $key => $value ) {
+        if ( ! empty( $key ) ) {
+            $content .= "$key=" . trim( $value ) . "\n";
+        }
+    }
+    
+    return file_put_contents( $env_path, $content ) !== false;
+}
 
 function aimakale_db_conn() {
     static $db = null;
@@ -182,7 +231,15 @@ function gemini_menu_olustur() {
 
 // Admin sayfasını dosyadan dahil et
 function aimakale_sayfa_getir() {
-    include plugin_dir_path( __FILE__ ) . 'admin/index.php';
+    $missing_env = aimakale_validate_env();
+    
+    if ( ! empty( $missing_env ) ) {
+        // Kurulum sayfasını göster
+        include plugin_dir_path( __FILE__ ) . 'admin/setup.php';
+    } else {
+        // Normal admin sayfasını göster
+        include plugin_dir_path( __FILE__ ) . 'admin/index.php';
+    }
 }
 
 // --- 2. ZAMANLAYICI AYARLARI ---
