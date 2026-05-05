@@ -3,14 +3,14 @@
  * Plugin Name: AI makale
  * Description: Düzenli aralıklarıla makale yazıp taslak olarak kaydeden wp eklentisi
  * Author: Picomve
- * Version: 3.11
+ * Version: 3.2
  */
 
 // Doğrudan erişimi engelle
 if ( ! defined( 'ABSPATH' ) ) exit;
 
 // --- ENV YÜKLEME ---
-function gemini_env_yukle() {
+function aimakale_env_yukle() {
     $env_dosyasi = plugin_dir_path( __FILE__ ) . '.env';
     if ( ! file_exists( $env_dosyasi ) ) $env_dosyasi = plugin_dir_path( __FILE__ ) . '.env.local';
     
@@ -23,12 +23,117 @@ function gemini_env_yukle() {
         }
     }
 }
-gemini_env_yukle();
+aimakale_env_yukle();
 
 // Varsayılanlar
 if ( ! defined( 'GEMINI_API_KEY' ) ) define( 'GEMINI_API_KEY', '' );
 if ( ! defined( 'GEMINI_MODEL' ) )   define( 'GEMINI_MODEL', 'gemini-1.5-flash' );
 define( 'KONU_DOSYASI', plugin_dir_path( __FILE__ ) . 'konular.txt' );
+define( 'KONU_DB', plugin_dir_path( __FILE__ ) . 'konular.sqlite' );
+
+function aimakale_db_conn() {
+    static $db = null;
+    if ( $db !== null ) {
+        return $db;
+    }
+
+    try {
+        $db = new PDO( 'sqlite:' . KONU_DB );
+        $db->setAttribute( PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION );
+        $db->setAttribute( PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC );
+        $db->exec( 'PRAGMA journal_mode = WAL;' );
+        $db->exec( 'PRAGMA foreign_keys = ON;' );
+        $db->exec( 'CREATE TABLE IF NOT EXISTS topics (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            topic TEXT NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )' );
+    } catch ( Exception $e ) {
+        return null;
+    }
+
+    if ( file_exists( KONU_DOSYASI ) ) {
+        $satirlar = file( KONU_DOSYASI, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES );
+        $count = (int) $db->query( 'SELECT COUNT(*) FROM topics' )->fetchColumn();
+        if ( $count === 0 && ! empty( $satirlar ) ) {
+            $stmt = $db->prepare( 'INSERT INTO topics (topic) VALUES (:topic)' );
+            foreach ( $satirlar as $satir ) {
+                $topic = trim( $satir );
+                if ( $topic === '' ) {
+                    continue;
+                }
+                $stmt->bindValue( ':topic', $topic, PDO::PARAM_STR );
+                $stmt->execute();
+            }
+        }
+    }
+
+    return $db;
+}
+
+function aimakale_db_get_topics() {
+    $db = aimakale_db_conn();
+    if ( ! $db ) {
+        return [];
+    }
+    $stmt = $db->query( 'SELECT id, topic FROM topics ORDER BY id ASC' );
+    return $stmt ? $stmt->fetchAll() : [];
+}
+
+function aimakale_db_add_topic( $topic ) {
+    $topic = trim( $topic );
+    if ( $topic === '' ) {
+        return false;
+    }
+    $db = aimakale_db_conn();
+    if ( ! $db ) {
+        return false;
+    }
+    $stmt = $db->prepare( 'INSERT INTO topics (topic) VALUES (:topic)' );
+    $stmt->bindValue( ':topic', $topic, PDO::PARAM_STR );
+    return $stmt->execute();
+}
+
+function aimakale_db_update_topic( $id, $topic ) {
+    $topic = trim( $topic );
+    if ( $topic === '' ) {
+        return aimakale_db_delete_topic( $id );
+    }
+    $db = aimakale_db_conn();
+    if ( ! $db ) {
+        return false;
+    }
+    $stmt = $db->prepare( 'UPDATE topics SET topic = :topic WHERE id = :id' );
+    $stmt->bindValue( ':topic', $topic, PDO::PARAM_STR );
+    $stmt->bindValue( ':id', (int) $id, PDO::PARAM_INT );
+    return $stmt->execute();
+}
+
+function aimakale_db_delete_topic( $id ) {
+    $db = aimakale_db_conn();
+    if ( ! $db ) {
+        return false;
+    }
+    $stmt = $db->prepare( 'DELETE FROM topics WHERE id = :id' );
+    $stmt->bindValue( ':id', (int) $id, PDO::PARAM_INT );
+    return $stmt->execute();
+}
+
+function aimakale_db_consume_topic() {
+    $db = aimakale_db_conn();
+    if ( ! $db ) {
+        return null;
+    }
+    $stmt = $db->query( 'SELECT id, topic FROM topics ORDER BY id ASC LIMIT 1' );
+    $row = $stmt ? $stmt->fetch() : false;
+    if ( ! $row || empty( $row['topic'] ) ) {
+        return null;
+    }
+    $delete = $db->prepare( 'DELETE FROM topics WHERE id = :id' );
+    $delete->bindValue( ':id', (int) $row['id'], PDO::PARAM_INT );
+    $delete->execute();
+    return $row['topic'];
+}
 
 
 // plugin-update-checker kütüphaneyi dahil et.
@@ -52,16 +157,16 @@ function gemini_menu_olustur() {
     add_menu_page(
         'AI Makale Yazar',          // Sayfa Başlığı
         'AI Makale Yazar',          // Menü Adı
-        'manage_options',        // Yetki (Sadece admin)
-        'aimakale-ayarlari', // Sayfa Slug'ı (URL)
-        'gemini_sayfa_getir',    // İçeriği basacak fonksiyon
-        'dashicons-edit',        // İkon
-        100                      // Sıra
+        'manage_options',           // Yetki (Sadece admin)
+        'aimakale-ayarlari',        // Sayfa Slug'ı (URL)
+        'aimakale_sayfa_getir',     // İçeriği basacak fonksiyon
+        'dashicons-edit',           // İkon
+        100                         // Sıra
     );
 }
 
 // Admin sayfasını dosyadan dahil et
-function gemini_sayfa_getir() {
+function aimakale_sayfa_getir() {
     include plugin_dir_path( __FILE__ ) . 'admin/index.php';
 }
 
@@ -107,23 +212,24 @@ register_deactivation_hook( __FILE__, function() {
     wp_clear_scheduled_hook( 'gemini_gorevi_v5' );
 });
 
-add_action( 'gemini_gorevi_v5', 'gemini_baslat' );
+add_action( 'gemini_gorevi_v5', 'aimakale_baslat' );
 
 // --- 3. ANA FONKSİYON ---
-function gemini_baslat( $debug = false ) {
-    
+function aimakale_baslat( $debug = false ) {
     if ( empty( GEMINI_API_KEY ) || strlen( GEMINI_API_KEY ) < 10 ) {
-        if ($debug) echo "HATA: API Key yok."; return;
+        if ( $debug ) {
+            echo "HATA: API Key yok.";
+        }
+        return;
     }
-    
-    if ( ! file_exists( KONU_DOSYASI ) ) return;
 
-    $satirlar = file( KONU_DOSYASI, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES );
-    if ( empty( $satirlar ) ) return;
-
-    $konu = trim( $satirlar[0] );
-    unset( $satirlar[0] );
-    file_put_contents( KONU_DOSYASI, implode( PHP_EOL, $satirlar ) );
+    $konu = aimakale_db_consume_topic();
+    if ( empty( $konu ) ) {
+        if ( $debug ) {
+            echo "HATA: Veri tabanında konu bulunamadı.";
+        }
+        return;
+    }
 
     $url = 'https://generativelanguage.googleapis.com/v1beta/models/' . GEMINI_MODEL . ':generateContent?key=' . GEMINI_API_KEY;
     $prompt = "Şu konuda Türkçe, SEO uyumlu, HTML formatlı (h2, p) blog yazısı yaz. Başlık h1 olmasın. İlk satır başlık olacak ve konuyu içerecek. Konu: $konu";
@@ -162,7 +268,7 @@ function gemini_baslat( $debug = false ) {
 // Test Tetikleyici (Admin paneli dışından URL ile test için)
 add_action( 'init', function() {
     if ( isset( $_GET['gemini_tetikle'] ) && current_user_can( 'manage_options' ) ) {
-        gemini_baslat( true );
+        aimakale_baslat( true );
         exit;
     }
 });
