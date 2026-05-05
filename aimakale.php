@@ -3,7 +3,7 @@
  * Plugin Name: AI makale
  * Description: Düzenli aralıklarıla makale yazıp taslak olarak kaydeden wp eklentisi
  * Author: Picomve
- * Version: 3.0
+ * Version: 3.11
  */
 
 // Doğrudan erişimi engelle
@@ -29,6 +29,21 @@ gemini_env_yukle();
 if ( ! defined( 'GEMINI_API_KEY' ) ) define( 'GEMINI_API_KEY', '' );
 if ( ! defined( 'GEMINI_MODEL' ) )   define( 'GEMINI_MODEL', 'gemini-1.5-flash' );
 define( 'KONU_DOSYASI', plugin_dir_path( __FILE__ ) . 'konular.txt' );
+
+
+// plugin-update-checker kütüphaneyi dahil et.
+require 'plugin-update-checker-5.6/plugin-update-checker.php';
+use YahnisElsts\PluginUpdateChecker\v5\PucFactory;
+
+// Güncelleme kontrolcüsünü başlat
+$myUpdateChecker = PucFactory::buildUpdateChecker(
+	'https://github.com/picomve/aimakale/', // GitHub depo linkin
+	__FILE__, // Ana eklenti dosyası
+	'aimakale' // Eklenti slug (klasör adı)
+);
+
+// Opsiyonel: Sadece "main" branch'indeki release'leri kontrol etmesini sağlar
+$myUpdateChecker->setBranch('main');
 
 // --- 1. ADMİN MENÜSÜ EKLEME ---
 add_action( 'admin_menu', 'gemini_menu_olustur' );
