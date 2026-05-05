@@ -32,7 +32,7 @@ define( 'KONU_DOSYASI', plugin_dir_path( __FILE__ ) . 'konular.txt' );
 
 
 // plugin-update-checker kütüphaneyi dahil et.
-require 'plugin-update-checker/plugin-update-checker.php';
+require 'plugin-update-checker-5.6/plugin-update-checker.php';
 use YahnisElsts\PluginUpdateChecker\v5\PucFactory;
 
 // Güncelleme kontrolcüsünü başlat
