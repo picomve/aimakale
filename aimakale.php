@@ -150,6 +150,21 @@ $myUpdateChecker = PucFactory::buildUpdateChecker(
 // Opsiyonel: Sadece "main" branch'indeki release'leri kontrol etmesini sağlar
 $myUpdateChecker->setBranch('main');
 
+
+// plugin-update-checker kütüphaneyi dahil et.
+require 'plugin-update-checker-5.6/plugin-update-checker.php';
+use YahnisElsts\PluginUpdateChecker\v5\PucFactory;
+
+// Güncelleme kontrolcüsünü başlat
+$myUpdateChecker = PucFactory::buildUpdateChecker(
+	'https://github.com/picomve/aimakale/', // GitHub depo linkin
+	__FILE__, // Ana eklenti dosyası
+	'aimakale' // Eklenti slug (klasör adı)
+);
+
+// Opsiyonel: Sadece "main" branch'indeki release'leri kontrol etmesini sağlar
+$myUpdateChecker->setBranch('main');
+
 // --- 1. ADMİN MENÜSÜ EKLEME ---
 add_action( 'admin_menu', 'gemini_menu_olustur' );
 
