@@ -3,7 +3,7 @@
  * Plugin Name: AI makale
  * Description: Düzenli aralıklarıla makale yazıp taslak olarak kaydeden wp eklentisi
  * Author: Picomve
- * Version: 3.1
+ * Version: 3.11
  */
 
 // Doğrudan erişimi engelle
