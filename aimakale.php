@@ -3,7 +3,7 @@
  * Plugin Name: AI makale
  * Description: Düzenli aralıklarıla makale yazıp taslak olarak kaydeden wp eklentisi
  * Author: Picomve
- * Version: 3.3
+ * Version: 3.3.1
  */
 
 // Doğrudan erişimi engelle
@@ -199,21 +199,6 @@ $myUpdateChecker = PucFactory::buildUpdateChecker(
 // Opsiyonel: Sadece "main" branch'indeki release'leri kontrol etmesini sağlar
 $myUpdateChecker->setBranch('main');
 
-
-// plugin-update-checker kütüphaneyi dahil et.
-require 'plugin-update-checker-5.6/plugin-update-checker.php';
-use YahnisElsts\PluginUpdateChecker\v5\PucFactory;
-
-// Güncelleme kontrolcüsünü başlat
-$myUpdateChecker = PucFactory::buildUpdateChecker(
-	'https://github.com/picomve/aimakale/', // GitHub depo linkin
-	__FILE__, // Ana eklenti dosyası
-	'aimakale' // Eklenti slug (klasör adı)
-);
-
-// Opsiyonel: Sadece "main" branch'indeki release'leri kontrol etmesini sağlar
-$myUpdateChecker->setBranch('main');
-
 // --- 1. ADMİN MENÜSÜ EKLEME ---
 add_action( 'admin_menu', 'gemini_menu_olustur' );
 
@@ -231,9 +216,12 @@ function gemini_menu_olustur() {
 
 // Admin sayfasını dosyadan dahil et
 function aimakale_sayfa_getir() {
+    // Eğer test modunda ise setup'ı zorla göster
+    $force_setup = isset( $_GET['aimakale_force_setup'] ) && current_user_can( 'manage_options' );
+    
     $missing_env = aimakale_validate_env();
     
-    if ( ! empty( $missing_env ) ) {
+    if ( ! empty( $missing_env ) || $force_setup ) {
         // Kurulum sayfasını göster
         include plugin_dir_path( __FILE__ ) . 'admin/setup.php';
     } else {
