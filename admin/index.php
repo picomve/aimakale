@@ -176,6 +176,7 @@ $topic_count = count( $konular );
             </div>
         </div>
     </div>
+</div>
 
     <div class="row gx-4">
         <div class="col-12">
