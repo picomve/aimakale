@@ -12,53 +12,12 @@ if ( isset( $_POST['aimakale_update_env'] ) ) {
         $env_vars['GEMINI_API_KEY'] = sanitize_text_field( $_POST['env_GEMINI_API_KEY'] );
     }
     
-    if ( isset( $_POST['env_GEMINI_MODEL'] ) && ! empty( trim( $_POST['env_GEMINI_MODEL'] ) ) ) {
-        $env_vars['GEMINI_MODEL'] = sanitize_text_field( $_POST['env_GEMINI_MODEL'] );
-    }
-    
     if ( ! empty( $env_vars ) ) {
         if ( aimakale_write_env( $env_vars ) ) {
-            echo '<div class="notice notice-success is-dismissible"><p>✓ Ortam değişkenleri başarıyla güncellendi!</p></div>';
+            echo '<div class="notice notice-success is-dismissible"><p>✓ Gemini API anahtarı başarıyla kaydedildi!</p></div>';
         } else {
             echo '<div class="notice notice-error is-dismissible"><p>✗ Dosya yazma hatası. Lütfen klasör izinlerini kontrol edin.</p></div>';
         }
-    }
-}
-
-// --- ENV DOSYASI İNDİRME ---
-if ( isset( $_GET['aimakale_download_env'] ) && current_user_can( 'manage_options' ) ) {
-    check_admin_referer( 'aimakale_env_download' );
-    
-    $example_env = "# AI Makale Yazar - Ortam Değişkenleri\nGEMINI_API_KEY=your-api-key-here\nGEMINI_MODEL=gemini-1.5-flash\n";
-    
-    header( 'Content-Type: text/plain' );
-    header( 'Content-Disposition: attachment; filename=".env.local"' );
-    header( 'Content-Length: ' . strlen( $example_env ) );
-    echo $example_env;
-    exit;
-}
-
-// --- ENV DOSYASI YÜKLEME ---
-if ( isset( $_POST['aimakale_upload_env'] ) ) {
-    check_admin_referer( 'aimakale_env_upload' );
-    
-    if ( isset( $_FILES['env_file'] ) && $_FILES['env_file']['error'] === UPLOAD_ERR_OK ) {
-        $file = $_FILES['env_file'];
-        
-        if ( $file['type'] === 'text/plain' || strpos( $file['name'], '.env' ) !== false ) {
-            $content = file_get_contents( $file['tmp_name'] );
-            $env_path = plugin_dir_path( dirname( __FILE__ ) ) . '.env.local';
-            
-            if ( file_put_contents( $env_path, $content ) !== false ) {
-                echo '<div class="notice notice-success is-dismissible"><p>.env.local dosyası başarıyla yüklendi!</p></div>';
-            } else {
-                echo '<div class="notice notice-error is-dismissible"><p>.env.local dosyası yazılamadı. Klasör izinlerini kontrol edin.</p></div>';
-            }
-        } else {
-            echo '<div class="notice notice-error is-dismissible"><p>Lütfen geçerli bir .env dosyası seçin.</p></div>';
-        }
-    } else {
-        echo '<div class="notice notice-error is-dismissible"><p>Dosya yükleme hatası oluştu.</p></div>';
     }
 }
 
@@ -193,58 +152,24 @@ $topic_count = count( $konular );
         <div class="col-12">
             <div class="card mt-4 border-secondary">
                 <div class="card-header bg-secondary text-white">
-                    <h5 class="mb-0">Ortam Anahtarları Ayarları</h5>
+                    <h5 class="mb-0">API Anahtarı</h5>
                 </div>
                 <div class="card-body">
-                    <p>API anahtarınız ve model ayarlarınız <code>.env.local</code> dosyasında saklanır.</p>
+                    <p>Gemini API anahtarınızı girin. Değer yalnızca kaydedilir ve ekranda gösterilmez.</p>
                     <hr>
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <h6>Örnek Dosya İndir</h6>
-                            <p class="text-muted small">Doldurmanız gereken ortam değişkenlerinin bir örneğini indirin.</p>
-                            <a href="<?php echo esc_url( wp_nonce_url( admin_url( '?aimakale_download_env=1' ), 'aimakale_env_download' ) ); ?>" class="btn btn-info">
-                                📥 .env.local Örneğini İndir
-                            </a>
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <h6>Dosya Yükle</h6>
-                            <p class="text-muted small">Hazırladığınız .env.local dosyasını yükleyin.</p>
-                            <form method="post" enctype="multipart/form-data" style="display: inline;">
-                                <?php wp_nonce_field( 'aimakale_env_upload' ); ?>
-                                <div class="d-flex gap-2">
-                                    <input type="file" name="env_file" accept=".env,.env.local,text/plain" class="form-control form-control-sm" style="flex: 1;">
-                                    <button type="submit" name="aimakale_upload_env" class="btn btn-success btn-sm">📤 Yükle</button>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-                    <div class="alert alert-info mt-3">
-                        <strong>ℹ️ Bilgi:</strong> .env.local dosyası güvenlik nedeniyle versiyon kontrolüne eklenmez. Sadece bu panel üzerinden yönetin.
-                    </div>
-                    <hr class="my-4">
-                    <h6 class="mb-3">Ortam Değerlerini Doğrudan Güncelleyin</h6>
                     <form method="post" action="">
                         <?php wp_nonce_field( 'aimakale_env_update' ); ?>
-                        <div class="row g-3">
-                            <div class="col-md-6">
-                                <label for="env_gemini_key" class="form-label">Gemini API Anahtarı</label>
-                                <input type="password" class="form-control" id="env_gemini_key" name="env_GEMINI_API_KEY" placeholder="API anahtarınızı girin">
-                                <small class="form-text text-muted">
-                                    <a href="https://ai.google.dev/tutorials/setup" target="_blank" rel="noopener noreferrer">
-                                        API anahtarı almak için tıklayın
-                                    </a>
-                                </small>
-                            </div>
-                            <div class="col-md-6">
-                                <label for="env_gemini_model" class="form-label">Gemini Model</label>
-                                <input type="text" class="form-control" id="env_gemini_model" name="env_GEMINI_MODEL" placeholder="gemini-1.5-flash" value="<?php echo esc_attr( defined( 'GEMINI_MODEL' ) ? GEMINI_MODEL : 'gemini-1.5-flash' ); ?>">
-                                <small class="form-text text-muted">Varsayılan: gemini-1.5-flash</small>
-                            </div>
+                        <div class="mb-3">
+                            <label for="env_gemini_key" class="form-label">Gemini API Anahtarı</label>
+                            <input type="password" class="form-control" id="env_gemini_key" name="env_GEMINI_API_KEY" placeholder="API anahtarınızı girin">
+                            <small class="form-text text-muted">
+                                <a href="https://ai.google.dev/tutorials/setup" target="_blank" rel="noopener noreferrer">
+                                    API anahtarı almak için tıklayın
+                                </a>
+                            </small>
                         </div>
-                        <div class="mt-3">
-                            <button type="submit" name="aimakale_update_env" class="btn btn-primary">
-                                💾 Ortam Değerlerini Kaydet
-                            </button>
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                            <button type="submit" name="aimakale_update_env" class="btn btn-primary">💾 API Anahtarını Kaydet</button>
                         </div>
                     </form>
                 </div>
