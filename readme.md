@@ -1,12 +1,18 @@
 ﻿# AI Makale
-AI makale projesi bir wordpress sitesinde düzenli zaman aralıklarıyla bir yapay zeka asistanına makale taslağı yazdıran ve yazı taslağı olarak kaydedip yazarın incelemesine bırakan, basit bir wordpress pluginidir.
+AI makale projesi wordpress sitenizde düzenli zaman aralıklarıyla bir yapay zeka asistanına makale yazdıran ve isteğe bağlı olarak yazı taslağı olarak kaydeden veya yayınlayan, bir wordpress eklentisidir.
+
+Henüz sadece google gemini desteği var fakat ileriki sürümlerde diğer llm'ler ilede uyumlu hale gelicek.
 
 # Nasıl yüklenir
-1. .env dosyanı oluştur ve .env.local dosyasını doldur.
-2. Klasörü rar'la
-3. Wordpress arayüzünde eklentiler -> ekle kısmına gelin
+1. Releases kısmına gelin ve latest sürümünü .zip dosyasını indirin
+2. Wordpress panelinizde eklentiler -> ekle kısmına gelin
 4. Sayfanın yukarısındaki "Eklenti yükle" kısmına tıklayın
-5. .rar Dosyasını seçip eklentiyi yükleyin
+5. .zip Dosyasını seçip eklentiyi yükleyin
+
+# Kurulum aşaması
+1. Google AI Studio API Keys paneline girin.
+2. Yeni bir API Key oluşturun yada hali hazırda olan bir Key'i eklenti arayüzüne girin.
+3. Sayfayı yenileyin. 
 
 Tebrikler artık otomasyonunuz hazır
-Eğer çalışıp çalışmadığını merak ediyorsanız site.com/?gemini_tetikle=1 diyerek tetikleyebilir ve görebilirsiniz.
+Eğer çalışıp çalışmadığını merak ediyorsanız arayüzden tetikleyebilir ve yazılar kısmına eklenip eklenmediğini görebilirsiniz.
