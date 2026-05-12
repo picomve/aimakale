@@ -16,3 +16,12 @@ Henüz sadece google gemini desteği var fakat ileriki sürümlerde diğer llm'l
 
 Tebrikler artık otomasyonunuz hazır
 Eğer çalışıp çalışmadığını merak ediyorsanız arayüzden tetikleyebilir ve yazılar kısmına eklenip eklenmediğini görebilirsiniz.
+
+# Ekran görüntüleri
+v3.3.1 sürümünü ait ekran görüntüleri
+
+![](/pictures/Ekran1.PNG)
+
+![](/pictures/Ekran2.PNG)
+
+![](/pictures/Ekran3.PNG)
